@@ -68,7 +68,7 @@ def score_batch(profile: UserProfile, articles: list[dict]) -> list[dict]:
     )
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash-tts",
         contents=prompt,
     )
 
