@@ -16,7 +16,7 @@ PROFILE_EXTRACTION_PROMPT = """\
 1. keywords: 자소서에서 핵심 역량/기술/관심사 키워드를 최대한 많이 추출 (예: ["백엔드", "프론트엔드", "Spring", "React"])
 2. fields: 관련 분야 (예: ["웹 개발", "클라우드"])
 3. target_position: 희망 직무 (예: "풀스택 개발자")
-4. tech_stack: 구체적인 기술 스택 (예: ["Spring Boot", "React", "Kubernetes"])
+4. tech_stack: 구체적인 기술 스택을 카테고리별로 분류 (예: {{"backend": ["Spring Boot", "Java"], "frontend": ["React", "TypeScript"], "infra": ["AWS", "Docker"]}})
 5. interested_companies: 관심 회사 (언급된 경우) (예: ["네이버", "카카오"])
 6. target_industry: 목표 산업 (예: "IT/소프트웨어")
 7. skills: 보유 역량 (예: ["문제해결력", "커뮤니케이션"])

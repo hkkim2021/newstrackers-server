@@ -6,7 +6,7 @@ class UserProfile(BaseModel):
     target_industry: str = ""
     keywords: list[str] = []
     fields: list[str] = []
-    tech_stack: list[str] = []
+    tech_stack: dict[str, list[str]] = {}
     interested_companies: list[str] = []
     skills: list[str] = []
     experiences: list[str] = []
