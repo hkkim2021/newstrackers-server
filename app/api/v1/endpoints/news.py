@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.news import NewsArticleModel
 from app.services.naver_news_collector import collect_all_keywords
+from app.services.news_filter import filter_news_by_resume_id
 
 router = APIRouter()
 
@@ -45,3 +46,17 @@ def list_news(
             for a in articles
         ],
     }
+
+
+@router.get("/filter/{resume_id}")
+def filter_news(
+    resume_id: str,
+    days: int = 30,
+    limit: int = 300,
+    db: Session = Depends(get_db),
+):
+    """Node2: 자소서 프로필 기반 뉴스 1차 필터링 (Array Overlap)"""
+    try:
+        return filter_news_by_resume_id(resume_id, db, days=days, limit=limit)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
