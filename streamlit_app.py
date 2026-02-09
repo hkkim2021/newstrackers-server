@@ -29,45 +29,20 @@ if KOREAN_FONT:
 def run_pipeline(uploaded_file):
     """Node1→2→3→4 전체 파이프라인 실행."""
     from app.core.database import SessionLocal
-    from app.models.resume import ResumeModel
-    from app.schemas.resume import UserProfile
-    from app.services.profile_extractor import extract_profile, extract_text_from_pdf
-    from app.services.report_generator import generate_report_by_resume_id
+    from app.agents.graphs.pipeline import run_full_pipeline
 
     file_bytes = uploaded_file.read()
-    raw_text = extract_text_from_pdf(file_bytes)
 
-    if not raw_text.strip():
-        st.error("PDF에서 텍스트를 추출할 수 없습니다.")
-        return None
-
-    # Node1: 프로필 추출
-    with st.spinner("Node1: Gemini 프로필 분석 중..."):
-        profile = extract_profile(raw_text)
-
-    # DB 저장
     db = SessionLocal()
-    resume_id = str(uuid.uuid4())
-    resume = ResumeModel(
-        resume_id=resume_id,
-        file_name=uploaded_file.name,
-        raw_text=raw_text,
-        profile=profile.model_dump(),
-    )
-    db.add(resume)
-    db.commit()
-
-    # Node2→3→4
-    with st.spinner("Node2→3→4: 뉴스 필터링 → 점수 매기기 → 리포트 생성 중..."):
-        result = generate_report_by_resume_id(resume_id, db)
-
-    db.close()
-
-    return {
-        "resume_id": resume_id,
-        "profile": profile.model_dump(),
-        **result,
-    }
+    try:
+        with st.spinner("Node1→2→3→4 파이프라인 실행 중..."):
+            result = run_full_pipeline(file_bytes, uploaded_file.name, db)
+        return result
+    except ValueError as e:
+        st.error(str(e))
+        return None
+    finally:
+        db.close()
 
 
 def render_profile(profile: dict):

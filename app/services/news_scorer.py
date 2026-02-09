@@ -2,12 +2,9 @@ import json
 import logging
 
 from google import genai
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.resume import ResumeModel
 from app.schemas.resume import UserProfile
-from app.services.news_filter import build_search_keywords, filter_news_by_profile
 
 logger = logging.getLogger(__name__)
 
@@ -125,36 +122,3 @@ def score_news(
     return results[:top_n]
 
 
-def score_news_by_resume_id(
-    resume_id: str,
-    db: Session,
-    days: int = 30,
-    filter_limit: int = 300,
-    min_score: int = 70,
-    top_n: int = 20,
-) -> dict:
-    """resume_id → 프로필 조회 → Node2 필터링 → Node3 점수 매기기."""
-    resume = db.query(ResumeModel).filter_by(resume_id=resume_id).first()
-    if not resume:
-        raise ValueError(f"자소서를 찾을 수 없습니다: {resume_id}")
-    if not resume.profile:
-        raise ValueError(f"프로필 분석이 필요합니다: {resume_id}")
-
-    profile = UserProfile(**resume.profile)
-
-    # Node2: 1차 필터링
-    filtered_articles = filter_news_by_profile(profile, db, days=days, limit=filter_limit)
-    logger.info(f"Node2 필터링 결과: {len(filtered_articles)}건")
-
-    # Node3: 관련성 점수
-    scored_articles = score_news(profile, filtered_articles, min_score=min_score, top_n=top_n)
-    logger.info(f"Node3 최종 결과: {len(scored_articles)}건 (>= {min_score}점)")
-
-    return {
-        "resume_id": resume_id,
-        "target_position": profile.target_position,
-        "node2_count": len(filtered_articles),
-        "node3_count": len(scored_articles),
-        "min_score": min_score,
-        "articles": scored_articles,
-    }

@@ -3,13 +3,9 @@ import logging
 from collections import defaultdict
 
 from google import genai
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.resume import ResumeModel
 from app.schemas.resume import UserProfile
-from app.services.news_filter import filter_news_by_profile
-from app.services.news_scorer import score_news
 
 logger = logging.getLogger(__name__)
 
@@ -152,44 +148,3 @@ def generate_report(
     return response.text.strip()
 
 
-def generate_report_by_resume_id(
-    resume_id: str,
-    db: Session,
-    days: int = 30,
-    filter_limit: int = 300,
-    min_score: int = 70,
-    top_n: int = 20,
-) -> dict:
-    """resume_id → Node2 → Node3 → Node4 전체 파이프라인 실행."""
-    resume = db.query(ResumeModel).filter_by(resume_id=resume_id).first()
-    if not resume:
-        raise ValueError(f"자소서를 찾을 수 없습니다: {resume_id}")
-    if not resume.profile:
-        raise ValueError(f"프로필 분석이 필요합니다: {resume_id}")
-
-    profile = UserProfile(**resume.profile)
-
-    # Node2: 1차 필터링
-    filtered = filter_news_by_profile(profile, db, days=days, limit=filter_limit)
-    logger.info(f"Node2: {len(filtered)}건")
-
-    # Node3: 관련성 점수
-    scored = score_news(profile, filtered, min_score=min_score, top_n=top_n)
-    logger.info(f"Node3: {len(scored)}건")
-
-    # Node4: 리포트 생성
-    grouped = _group_articles(scored)
-    report = generate_report(profile, scored)
-    logger.info("Node4: 리포트 생성 완료")
-
-    return {
-        "resume_id": resume_id,
-        "target_position": profile.target_position,
-        "pipeline_summary": {
-            "node2_filtered": len(filtered),
-            "node3_scored": len(scored),
-            "min_score": min_score,
-        },
-        "grouped_articles": grouped,
-        "report": report,
-    }

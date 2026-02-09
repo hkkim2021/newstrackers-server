@@ -4,8 +4,6 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.models.news import NewsArticleModel
-from app.models.resume import ResumeModel
 from app.schemas.resume import UserProfile
 
 logger = logging.getLogger(__name__)
@@ -87,28 +85,3 @@ def filter_news_by_profile(
     return articles
 
 
-def filter_news_by_resume_id(
-    resume_id: str,
-    db: Session,
-    days: int = 30,
-    limit: int = 300,
-) -> dict:
-    """resume_id로 프로필을 조회한 뒤 뉴스를 필터링한다."""
-    resume = db.query(ResumeModel).filter_by(resume_id=resume_id).first()
-    if not resume:
-        raise ValueError(f"자소서를 찾을 수 없습니다: {resume_id}")
-
-    if not resume.profile:
-        raise ValueError(f"프로필 분석이 필요합니다: {resume_id}")
-
-    profile = UserProfile(**resume.profile)
-    search_keywords = build_search_keywords(profile)
-    articles = filter_news_by_profile(profile, db, days=days, limit=limit)
-
-    return {
-        "resume_id": resume_id,
-        "search_keywords": search_keywords,
-        "keyword_count": len(search_keywords),
-        "article_count": len(articles),
-        "articles": articles,
-    }
