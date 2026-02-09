@@ -7,11 +7,11 @@ NEWS_KEYWORDS = {
     ],
     
     # 채용/인사
-    "job": [
-        "채용", "구인", "모집", "신입", "경력", "인턴", "취업", "이직",
-        "개발자", "엔지니어", "프로그래머", "연봉", "복지", "재택근무",
-        "면접", "코딩테스트", "포트폴리오", "이력서", "자소서",
-    ],
+    # "job": [
+    #     "채용", "구인", "모집", "신입", "경력", "인턴", "취업", "이직",
+    #     "개발자", "엔지니어", "프로그래머", "연봉", "복지", "재택근무",
+    #     "면접", "코딩테스트", "포트폴리오", "이력서", "자소서",
+    # ],
     
     # 백엔드
     "backend": [
@@ -205,7 +205,7 @@ ALL_KEYWORDS = list(set(ALL_KEYWORDS))
 # 우선순위 키워드 (매일 수집)
 PRIORITY_KEYWORDS = (
     NEWS_KEYWORDS["IT_general"] + 
-    NEWS_KEYWORDS["job"] + 
+    # NEWS_KEYWORDS["job"] + 
     NEWS_KEYWORDS["naver"] + 
     NEWS_KEYWORDS["kakao"] + 
     NEWS_KEYWORDS["commerce"] +
