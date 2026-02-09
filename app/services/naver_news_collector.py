@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.keywords import NEWS_KEYWORDS
+from app.core.keywords import NEWS_KEYWORDS, PRIORITY_KEYWORDS
 from app.models.news import NewsArticleModel
 from sqlalchemy import func
 
@@ -72,26 +72,42 @@ def save_to_db(articles: list[dict], keyword: str, category: str, db: Session):
 
     db.commit()
 
-
-def collect_all_keywords(db: Session):
+#def collect_all_keywords(db: Session, priority_only: bool = True):
+def collect_all_keywords(db: Session, priority_only: bool = False):
+    """뉴스를 수집한다. priority_only=True면 PRIORITY_KEYWORDS만 수집."""
     total = 0
-    for category, keywords in NEWS_KEYWORDS.items():
-        for keyword in keywords:
+    if priority_only:
+        seen = set()
+        for keyword in PRIORITY_KEYWORDS:
+            if keyword in seen:
+                continue
+            seen.add(keyword)
             try:
                 articles = search_news(keyword)
-                save_to_db(articles, keyword, category, db)
+                save_to_db(articles, keyword, "priority", db)
                 total += len(articles)
-                logger.info(f"[{category}] '{keyword}': {len(articles)}건 수집")
+                logger.info(f"[priority] '{keyword}': {len(articles)}건 수집")
             except Exception as e:
-                logger.error(f"[{category}] '{keyword}' 수집 실패: {e}")
+                logger.error(f"[priority] '{keyword}' 수집 실패: {e}")
+    else:
+        for category, keywords in NEWS_KEYWORDS.items():
+            for keyword in keywords:
+                try:
+                    articles = search_news(keyword)
+                    save_to_db(articles, keyword, category, db)
+                    total += len(articles)
+                    logger.info(f"[{category}] '{keyword}': {len(articles)}건 수집")
+                except Exception as e:
+                    logger.error(f"[{category}] '{keyword}' 수집 실패: {e}")
     return total
 
 
 def run_batch():
-    logger.info("뉴스 배치 수집 시작")
+    """매일 새벽 2시 배치: 우선순위 키워드만 수집."""
+    logger.info("뉴스 배치 수집 시작 (우선순위 키워드)")
     db = SessionLocal()
     try:
-        total = collect_all_keywords(db)
+        total = collect_all_keywords(db, priority_only=True)
         logger.info(f"뉴스 배치 수집 완료: 총 {total}건 처리")
     except Exception as e:
         logger.error(f"뉴스 배치 수집 실패: {e}")
