@@ -4,7 +4,10 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.agents.nodes import profile_node, filter_node, scorer_node, report_node
+from app.agents.nodes.profile_node import profile_node as run_profile_node
+from app.agents.nodes.filter_node import filter_node as run_filter_node
+from app.agents.nodes.scorer_node import scorer_node as run_scorer_node
+from app.agents.nodes.report_node import report_node as run_report_node
 from app.agents.state import PipelineState
 from app.models.resume import ResumeModel
 from app.services.profile_extractor import extract_text_from_pdf
@@ -41,7 +44,7 @@ def run_full_pipeline(
 
     # Node1: 프로필 분석
     logger.info("Pipeline: Node1 시작")
-    state.update(profile_node(state))
+    state.update(run_profile_node(state))
 
     # DB 저장
     resume_id = str(uuid.uuid4())
@@ -57,15 +60,15 @@ def run_full_pipeline(
 
     # Node2: 1차 필터링
     logger.info("Pipeline: Node2 시작")
-    state.update(filter_node(state))
+    state.update(run_filter_node(state))
 
     # Node3: 관련성 점수
     logger.info("Pipeline: Node3 시작")
-    state.update(scorer_node(state))
+    state.update(run_scorer_node(state))
 
     # Node4: 리포트 생성
     logger.info("Pipeline: Node4 시작")
-    state.update(report_node(state))
+    state.update(run_report_node(state))
 
     logger.info("Pipeline: 완료")
 
@@ -110,9 +113,9 @@ def run_pipeline_by_resume_id(
     }
 
     # Node2→3→4
-    state.update(filter_node(state))
-    state.update(scorer_node(state))
-    state.update(report_node(state))
+    state.update(run_filter_node(state))
+    state.update(run_scorer_node(state))
+    state.update(run_report_node(state))
 
     return {
         "resume_id": resume_id,
