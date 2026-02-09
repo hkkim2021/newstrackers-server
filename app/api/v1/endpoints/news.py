@@ -10,9 +10,15 @@ router = APIRouter()
 
 
 @router.post("/collect")
-def trigger_news_collection(db: Session = Depends(get_db)):
-    total = collect_all_keywords(db)
-    return {"message": f"뉴스 수집 완료: {total}건 처리"}
+def trigger_news_collection(
+    # priority_only: bool = True,
+    priority_only: bool = False,
+    db: Session = Depends(get_db),
+):
+    """뉴스 수집 트리거. priority_only=True(기본)면 우선순위 키워드만, False면 전체 수집."""
+    total = collect_all_keywords(db, priority_only=priority_only)
+    mode = "우선순위" if priority_only else "전체"
+    return {"message": f"뉴스 수집 완료 ({mode}): {total}건 처리"}
 
 
 @router.get("/")
