@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.keywords import NEWS_KEYWORDS, PRIORITY_KEYWORDS
 from app.models.news import NewsArticleModel
+from app.services.embedding_service import generate_embedding, _build_embedding_text
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -46,31 +47,46 @@ def _parse_pub_date(date_str: str) -> datetime | None:
 
 
 def save_to_db(articles: list[dict], keyword: str, category: str, db: Session):
+    saved = 0
     for item in articles:
         link = item.get("originallink") or item.get("link", "")
         if not link:
             continue
 
-        existing = db.query(NewsArticleModel).filter_by(link=link).first()
-        if existing:
-            if keyword not in (existing.keywords or []):
-                db.execute(
-                    update(NewsArticleModel)
-                    .where(NewsArticleModel.link == link)
-                    .values(keywords=func.array_append(NewsArticleModel.keywords, keyword))
-                )
-        else:
-            article = NewsArticleModel(
-                title=_clean_html(item.get("title", "")),
-                description=_clean_html(item.get("description", "")),
-                link=link,
-                pub_date=_parse_pub_date(item.get("pubDate")),
-                category=category,
-                keywords=[keyword],
-            )
-            db.add(article)
+        try:
+            existing = db.query(NewsArticleModel).filter_by(link=link).first()
+            if existing:
+                if keyword not in (existing.keywords or []):
+                    db.execute(
+                        update(NewsArticleModel)
+                        .where(NewsArticleModel.link == link)
+                        .values(keywords=func.array_append(NewsArticleModel.keywords, keyword))
+                    )
+                    db.commit()
+            else:
+                title = _clean_html(item.get("title", ""))
+                description = _clean_html(item.get("description", ""))
 
-    db.commit()
+                embedding = generate_embedding(
+                    _build_embedding_text(title, description)
+                )
+
+                article = NewsArticleModel(
+                    title=title,
+                    description=description,
+                    link=link,
+                    pub_date=_parse_pub_date(item.get("pubDate")),
+                    category=category,
+                    keywords=[keyword],
+                    embedding=embedding,
+                )
+                db.add(article)
+                db.commit()
+                saved += 1
+        except Exception:
+            db.rollback()
+
+    return saved
 
 #def collect_all_keywords(db: Session, priority_only: bool = True):
 def collect_all_keywords(db: Session, priority_only: bool = False):
