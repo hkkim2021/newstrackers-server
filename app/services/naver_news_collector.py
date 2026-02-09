@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.keywords import NEWS_KEYWORDS, PRIORITY_KEYWORDS
 from app.models.news import NewsArticleModel
+from app.services.embedding_service import generate_embedding, _build_embedding_text
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -63,13 +64,21 @@ def save_to_db(articles: list[dict], keyword: str, category: str, db: Session):
                     )
                     db.commit()
             else:
+                title = _clean_html(item.get("title", ""))
+                description = _clean_html(item.get("description", ""))
+
+                embedding = generate_embedding(
+                    _build_embedding_text(title, description)
+                )
+
                 article = NewsArticleModel(
-                    title=_clean_html(item.get("title", "")),
-                    description=_clean_html(item.get("description", "")),
+                    title=title,
+                    description=description,
                     link=link,
                     pub_date=_parse_pub_date(item.get("pubDate")),
                     category=category,
                     keywords=[keyword],
+                    embedding=embedding,
                 )
                 db.add(article)
                 db.commit()
