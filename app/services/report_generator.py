@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections import defaultdict
 
 from google import genai
@@ -8,6 +9,8 @@ from app.core.config import settings
 from app.schemas.resume import UserProfile
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
 
 REPORT_PROMPT = """\
 당신은 취업 준비생을 위한 면접 준비 리포트를 작성하는 전문 컨설턴트입니다.
@@ -140,11 +143,23 @@ def generate_report(
         grouped_data=json.dumps(grouped, ensure_ascii=False, indent=2),
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=prompt,
-    )
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            wait = 2 ** attempt
+            logger.warning(
+                f"리포트 생성 실패 (시도 {attempt + 1}/{MAX_RETRIES}): {e}"
+            )
+            if attempt < MAX_RETRIES - 1:
+                # time.sleep(wait)
+                 time.sleep(60)
 
-    return response.text.strip()
+    logger.error("리포트 생성 최종 실패")
+    return "리포트 생성에 실패했습니다. 잠시 후 다시 시도해주세요."
 
 

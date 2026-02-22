@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from PyPDF2 import PdfReader
 from io import BytesIO
 from google import genai
@@ -9,9 +10,11 @@ from app.schemas.resume import UserProfile
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 3
+
 PROFILE_EXTRACTION_PROMPT = """\
 당신은 취업 준비생의 자기소개서를 분석하는 전문가입니다.
-자기소개서를 읽고 다음 정보를 JSON으로 추출해주세요:
+자기소개서를 읽고 다음 예시와 같이 자기소개서에 대한 정보를 JSON으로 추출해주세요:
 
 1. keywords: 자소서에서 핵심 역량/기술/관심사 키워드를 최대한 많이 추출 (예: ["백엔드", "프론트엔드", "Spring", "React"])
 2. fields: 관련 분야 (예: ["웹 개발", "클라우드"])
@@ -21,9 +24,9 @@ PROFILE_EXTRACTION_PROMPT = """\
 6. target_industry: 목표 산업 (예: "IT/소프트웨어")
 7. skills: 보유 역량 (예: ["문제해결력", "커뮤니케이션"])
 8. experiences: 주요 경험 (예: ["웹 서비스 개발 프로젝트", "인턴십"])
-9. interests: 관심 분야 (예: ["AI/ML", "클라우드"])
+9. interests: 관심 분야 (예: ["풀스택", "클라우드"])
 
-반드시 유효한 JSON만 출력하세요.
+반드시 자기소개서에 기반해 유효한 JSON만 출력하세요.
 
 자기소개서:
 {text}
@@ -34,27 +37,41 @@ def extract_profile(text: str) -> UserProfile:
     client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
     prompt = PROFILE_EXTRACTION_PROMPT.format(text=text)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=prompt,
-    )
 
-    raw = response.text.strip()
-    # Remove markdown code block if present
-    if raw.startswith("```"):
-        lines = raw.split("\n")
-        lines = lines[1:]  # remove opening ```json
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        raw = "\n".join(lines)
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=prompt,
+            )
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.error(f"Gemini 응답 파싱 실패: {raw[:200]}")
-        data = {}
+            raw = response.text.strip()
+            # Remove markdown code block if present
+            if raw.startswith("```"):
+                lines = raw.split("\n")
+                lines = lines[1:]  # remove opening ```json
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                raw = "\n".join(lines)
 
-    return UserProfile(**data)
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                logger.error(f"Gemini 응답 파싱 실패: {raw[:200]}")
+                data = {}
+
+            return UserProfile(**data)
+        except Exception as e:
+            wait = 2 ** attempt
+            logger.warning(
+                f"프로필 추출 실패 (시도 {attempt + 1}/{MAX_RETRIES}): {e}"
+            )
+            if attempt < MAX_RETRIES - 1:
+                # time.sleep(wait)
+                 time.sleep(60)
+
+    logger.error("프로필 추출 최종 실패")
+    return UserProfile()
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from google import genai
 
@@ -7,6 +8,8 @@ from app.core.config import settings
 from app.schemas.resume import UserProfile
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
 
 SCORING_PROMPT = """\
 다음은 "{target_position}" 지원자의 프로필입니다:
@@ -64,26 +67,39 @@ def score_batch(profile: UserProfile, articles: list[dict]) -> list[dict]:
         news_list=_build_news_list_text(articles),
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=prompt,
-    )
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=prompt,
+            )
 
-    raw = response.text.strip()
-    if raw.startswith("```"):
-        lines = raw.split("\n")
-        lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        raw = "\n".join(lines)
+            raw = response.text.strip()
+            if raw.startswith("```"):
+                lines = raw.split("\n")
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                raw = "\n".join(lines)
 
-    try:
-        scored = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.error(f"Gemini 점수 파싱 실패: {raw[:300]}")
-        return []
+            try:
+                scored = json.loads(raw)
+            except json.JSONDecodeError:
+                logger.error(f"Gemini 점수 파싱 실패: {raw[:300]}")
+                return []
 
-    return scored
+            return scored
+        except Exception as e:
+            wait = 2 ** attempt
+            logger.warning(
+                f"Gemini 점수 매기기 실패 (시도 {attempt + 1}/{MAX_RETRIES}): {e}"
+            )
+            if attempt < MAX_RETRIES - 1:
+                # time.sleep(wait)
+                time.sleep(60)
+
+    logger.error("Gemini 점수 매기기 최종 실패, 빈 결과 반환")
+    return []
 
 
 def score_news(

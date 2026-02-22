@@ -46,16 +46,16 @@ def run_full_pipeline(
     logger.info("Pipeline: Node1 시작")
     state.update(run_profile_node(state))
 
-    # DB 저장
+    # DB 저장 주석 처리
     resume_id = str(uuid.uuid4())
-    resume = ResumeModel(
-        resume_id=resume_id,
-        file_name=file_name,
-        raw_text=raw_text,
-        profile=state["profile"],
-    )
-    db.add(resume)
-    db.commit()
+    # resume = ResumeModel(
+    #     resume_id=resume_id,
+    #     file_name=file_name,
+    #     raw_text=raw_text,
+    #     profile=state["profile"],
+    # )
+    # db.add(resume)
+    # db.commit()
     state["resume_id"] = resume_id
 
     # Node2: 1차 필터링
